@@ -73,19 +73,36 @@ export function useCreateOrder() {
       customerName,
       customerMobile,
       items,
+      taxEnabled,
     }: {
       customerName: string;
       customerMobile: string;
       items: CreateOrderItemInput[];
+      taxEnabled: boolean;
     }) => {
       if (!actor) throw new Error("Not connected");
       const result = await typedActor(actor).createOrder(
         customerName,
         customerMobile,
         items,
+        taxEnabled,
       );
       if (result.__kind__ === "None") throw new Error("Order creation failed");
       return result.value;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+export function useDeleteOrder() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not connected");
+      return typedActor(actor).deleteOrder(id);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });

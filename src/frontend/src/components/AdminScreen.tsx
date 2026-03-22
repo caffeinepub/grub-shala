@@ -30,10 +30,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle,
   Clock,
+  Download,
   Loader2,
   Pencil,
   Plus,
   Trash2,
+  Users,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -51,6 +53,7 @@ import {
   useCreateMenuItem,
   useDeleteCategory,
   useDeleteMenuItem,
+  useDeleteOrder,
   useListCategories,
   useListMenuItems,
   useListRecentOrders,
@@ -69,6 +72,26 @@ function getStatusLabel(status: OrderStatus): { label: string; color: string } {
 
 function formatPrice2(cents: bigint): string {
   return formatPrice(cents);
+}
+
+function downloadCSV(filename: string, rows: string[][]): void {
+  const csv = rows
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatOrderDate(createdAt: bigint): string {
+  const d = new Date(Number(createdAt) / 1_000_000);
+  return `${d.toLocaleDateString("en-IN")} ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 // ---- Categories Tab ----
@@ -341,6 +364,9 @@ function MenuItemsTab() {
   });
   const [deleteId, setDeleteId] = useState<bigint | null>(null);
 
+  const getCatName = (id: bigint) =>
+    categories.find((c) => c.id === id)?.name ?? "Unknown";
+
   const openAdd = () => {
     setEditing(null);
     setForm({
@@ -366,12 +392,12 @@ function MenuItemsTab() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error("Name required");
+    if (!form.name.trim() || !form.priceCents) {
+      toast.error("Name and price are required");
       return;
     }
     const priceCents = BigInt(
-      Math.round(Number.parseFloat(form.priceCents || "0") * 100),
+      Math.round(Number.parseFloat(form.priceCents) * 100),
     );
     try {
       if (editing) {
@@ -410,9 +436,6 @@ function MenuItemsTab() {
     setDeleteId(null);
   };
 
-  const getCatName = (id: bigint) =>
-    categories.find((c) => c.id === id)?.name ?? "—";
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -427,12 +450,12 @@ function MenuItemsTab() {
         </Button>
       </div>
       <div className="rounded-xl border border-border overflow-hidden">
-        <ScrollArea className="h-[420px]">
+        <ScrollArea className="max-h-[480px]">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground text-xs">
-                  Item
+                  Name
                 </TableHead>
                 <TableHead className="text-muted-foreground text-xs">
                   Category
@@ -544,7 +567,7 @@ function MenuItemsTab() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
-                  Price ($)
+                  Price (₹)
                 </Label>
                 <Input
                   data-ocid="menuitem.price.input"
@@ -555,7 +578,7 @@ function MenuItemsTab() {
                   onChange={(e) =>
                     setForm((p) => ({ ...p, priceCents: e.target.value }))
                   }
-                  placeholder="9.99"
+                  placeholder="99.00"
                   className="bg-input border-border"
                 />
               </div>
@@ -663,9 +686,12 @@ function MenuItemsTab() {
 
 // ---- Orders Tab ----
 function OrdersTab() {
-  const { data: orders, isLoading } = useListRecentOrders(50n);
+  const { data: orders, isLoading } = useListRecentOrders(200n);
   const updateStatus = useUpdateOrderStatus();
+  const deleteOrder = useDeleteOrder();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [deleteOrderId, setDeleteOrderId] = useState<bigint | null>(null);
+  const [dateFilter, setDateFilter] = useState("");
 
   const handleStatusChange = async (order: Order, status: OrderStatus) => {
     try {
@@ -674,6 +700,65 @@ function OrdersTab() {
     } catch {
       toast.error("Failed to update status");
     }
+  };
+
+  const handleDeleteOrder = async (id: bigint) => {
+    try {
+      await deleteOrder.mutateAsync(id);
+      toast.success("Order deleted");
+    } catch {
+      toast.error("Failed to delete order");
+    }
+    setDeleteOrderId(null);
+  };
+
+  const allOrders = orders ?? [];
+
+  const displayOrders = dateFilter
+    ? allOrders.filter((o) => {
+        const d = new Date(Number(o.createdAt) / 1_000_000);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}` === dateFilter;
+      })
+    : allOrders;
+
+  const totalSaleCents = displayOrders.reduce(
+    (sum, o) => sum + Number(o.totalCents),
+    0,
+  );
+
+  const handleDownloadCSV = () => {
+    const headers = [
+      "Order#",
+      "Customer Name",
+      "Mobile",
+      "Date",
+      "Items",
+      "Subtotal",
+      "Tax",
+      "Total",
+      "Status",
+    ];
+    const rows = displayOrders.map((o) => {
+      const { label } = getStatusLabel(o.status);
+      const itemsStr = o.items
+        .map((i) => `${i.name} x${i.quantity}`)
+        .join("; ");
+      return [
+        o.orderNumber.toString(),
+        o.customerName,
+        o.customerMobile,
+        formatOrderDate(o.createdAt),
+        itemsStr,
+        formatPrice2(o.subtotalCents),
+        formatPrice2(o.taxCents),
+        formatPrice2(o.totalCents),
+        label,
+      ];
+    });
+    downloadCSV(`orders_${dateFilter || "all"}.csv`, [headers, ...rows]);
   };
 
   if (isLoading) {
@@ -688,20 +773,61 @@ function OrdersTab() {
     );
   }
 
-  const displayOrders = orders ?? [];
-
   return (
     <div className="space-y-4">
+      {/* Filters & actions bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Label
+            htmlFor="date-filter"
+            className="text-xs text-muted-foreground whitespace-nowrap"
+          >
+            Filter by date:
+          </Label>
+          <Input
+            id="date-filter"
+            data-ocid="orders.date.input"
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="h-8 text-xs bg-input border-border w-auto"
+          />
+          {dateFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs px-2"
+              onClick={() => setDateFilter("")}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        <Button
+          data-ocid="orders.download.button"
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadCSV}
+          className="h-8 text-xs border-border"
+          disabled={displayOrders.length === 0}
+        >
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          Download CSV
+        </Button>
+      </div>
+
       <p className="text-sm text-muted-foreground">
-        {displayOrders.length} recent orders
+        {displayOrders.length} order{displayOrders.length !== 1 ? "s" : ""}
+        {dateFilter && " for selected date"}
       </p>
+
       {displayOrders.length === 0 ? (
         <div
           data-ocid="orders.empty_state"
           className="flex flex-col items-center justify-center h-48 text-muted-foreground"
         >
           <Clock className="w-8 h-8 mb-2" />
-          <p className="text-sm">No orders yet</p>
+          <p className="text-sm">No orders found</p>
         </div>
       ) : (
         <div className="rounded-xl border border-border overflow-hidden">
@@ -713,6 +839,9 @@ function OrdersTab() {
                 </TableHead>
                 <TableHead className="text-muted-foreground text-xs">
                   Customer
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs">
+                  Date
                 </TableHead>
                 <TableHead className="text-muted-foreground text-xs">
                   Total
@@ -747,6 +876,9 @@ function OrdersTab() {
                           {order.customerMobile}
                         </p>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatOrderDate(order.createdAt)}
                     </TableCell>
                     <TableCell className="text-primary font-semibold text-sm">
                       {formatPrice2(order.totalCents)}
@@ -787,6 +919,15 @@ function OrdersTab() {
                             </Button>
                           </>
                         )}
+                        <Button
+                          data-ocid={`orders.delete_button.${idx + 1}`}
+                          variant="ghost"
+                          size="icon"
+                          className="w-7 h-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteOrderId(order.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -794,6 +935,15 @@ function OrdersTab() {
               })}
             </TableBody>
           </Table>
+          {/* Total sale summary */}
+          <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
+            <span className="text-sm font-semibold text-muted-foreground">
+              Total Sale ({displayOrders.length} orders)
+            </span>
+            <span className="text-base font-bold text-primary">
+              {formatPrice2(BigInt(totalSaleCents))}
+            </span>
+          </div>
         </div>
       )}
 
@@ -821,6 +971,12 @@ function OrdersTab() {
                 <div>
                   <p className="text-xs text-muted-foreground">Mobile</p>
                   <p className="font-medium">{selectedOrder.customerMobile}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="font-medium">
+                    {formatOrderDate(selectedOrder.createdAt)}
+                  </p>
                 </div>
               </div>
               <div className="space-y-1">
@@ -869,6 +1025,164 @@ function OrdersTab() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Delete order confirm */}
+      <Dialog
+        open={deleteOrderId !== null}
+        onOpenChange={() => setDeleteOrderId(null)}
+      >
+        <DialogContent
+          data-ocid="orders.delete_dialog"
+          className="bg-card border-border"
+        >
+          <DialogHeader>
+            <DialogTitle>Delete Order?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The order record will be permanently
+            removed.
+          </p>
+          <DialogFooter>
+            <Button
+              data-ocid="orders.delete_cancel_button"
+              variant="ghost"
+              onClick={() => setDeleteOrderId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="orders.delete_confirm_button"
+              variant="destructive"
+              onClick={() => deleteOrderId && handleDeleteOrder(deleteOrderId)}
+              disabled={deleteOrder.isPending}
+            >
+              {deleteOrder.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ---- Customers Tab ----
+function CustomersTab() {
+  const { data: orders } = useListRecentOrders(200n);
+  const allOrders = orders ?? [];
+
+  // Deduplicate customers by mobile — keep latest name, accumulate orders/spend
+  const customerMap = new Map<
+    string,
+    { name: string; mobile: string; totalOrders: number; totalSpent: number }
+  >();
+
+  for (const order of allOrders) {
+    const key = order.customerMobile;
+    const existing = customerMap.get(key);
+    if (existing) {
+      existing.name = order.customerName; // keep latest
+      existing.totalOrders += 1;
+      existing.totalSpent += Number(order.totalCents);
+    } else {
+      customerMap.set(key, {
+        name: order.customerName,
+        mobile: order.customerMobile,
+        totalOrders: 1,
+        totalSpent: Number(order.totalCents),
+      });
+    }
+  }
+
+  const customers = Array.from(customerMap.values()).sort(
+    (a, b) => b.totalSpent - a.totalSpent,
+  );
+
+  const handleDownloadCSV = () => {
+    const headers = ["Name", "Mobile", "Total Orders", "Total Spent"];
+    const rows = customers.map((c) => [
+      c.name,
+      c.mobile,
+      c.totalOrders.toString(),
+      formatPrice2(BigInt(c.totalSpent)),
+    ]);
+    downloadCSV("customers.csv", [headers, ...rows]);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {customers.length} unique customer{customers.length !== 1 ? "s" : ""}
+        </p>
+        <Button
+          data-ocid="customers.download.button"
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadCSV}
+          disabled={customers.length === 0}
+          className="h-8 text-xs border-border"
+        >
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          Download CSV
+        </Button>
+      </div>
+
+      {customers.length === 0 ? (
+        <div
+          data-ocid="customers.empty_state"
+          className="flex flex-col items-center justify-center h-48 text-muted-foreground"
+        >
+          <Users className="w-8 h-8 mb-2" />
+          <p className="text-sm">No customers yet</p>
+          <p className="text-xs">Customers appear once orders are placed</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground text-xs">
+                  Name
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs">
+                  Mobile
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs text-right">
+                  Total Orders
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs text-right">
+                  Total Spent
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customers.map((customer, idx) => (
+                <TableRow
+                  key={customer.mobile}
+                  data-ocid={`customers.item.${idx + 1}`}
+                  className="border-border"
+                >
+                  <TableCell className="font-medium text-sm">
+                    {customer.name}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {customer.mobile}
+                  </TableCell>
+                  <TableCell className="text-right text-sm">
+                    {customer.totalOrders}
+                  </TableCell>
+                  <TableCell className="text-right text-primary font-semibold text-sm">
+                    {formatPrice2(BigInt(customer.totalSpent))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
@@ -884,7 +1198,7 @@ export default function AdminScreen() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage categories, menu items, and orders
+          Manage categories, menu items, orders, and customers
         </p>
       </div>
 
@@ -911,6 +1225,12 @@ export default function AdminScreen() {
           >
             Orders
           </TabsTrigger>
+          <TabsTrigger
+            value="customers"
+            className="data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground"
+          >
+            Customers
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
           <CategoriesTab />
@@ -920,6 +1240,9 @@ export default function AdminScreen() {
         </TabsContent>
         <TabsContent value="orders">
           <OrdersTab />
+        </TabsContent>
+        <TabsContent value="customers">
+          <CustomersTab />
         </TabsContent>
       </Tabs>
     </motion.div>

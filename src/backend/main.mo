@@ -159,7 +159,7 @@ actor {
   };
 
   // ── Orders
-  public shared func createOrder(customerName : Text, customerMobile : Text, itemInputs : [CreateOrderItemInput]) : async ?Order {
+  public shared func createOrder(customerName : Text, customerMobile : Text, itemInputs : [CreateOrderItemInput], taxEnabled : Bool) : async ?Order {
     var orderItems : [OrderItem] = [];
     var subtotal = 0;
 
@@ -179,7 +179,7 @@ actor {
       };
     };
 
-    let taxCents = subtotal * 5 / 100;
+    let taxCents = if (taxEnabled) subtotal * 5 / 100 else 0;
     let totalCents = subtotal + taxCents;
     let order : Order = {
       id = nextOrderId;
@@ -223,6 +223,12 @@ actor {
         ?updated;
       };
     };
+  };
+
+  public shared func deleteOrder(id : Nat) : async Bool {
+    let exists = orders.containsKey(id);
+    orders.remove(id);
+    exists;
   };
 
   public query func listRecentOrders(limit : Nat) : async [Order] {

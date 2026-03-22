@@ -74,8 +74,9 @@ export interface backendInterface {
   listMenuItemsByCategory(categoryId: bigint): Promise<MenuItem[]>;
 
   // Orders
-  createOrder(customerName: string, customerMobile: string, items: CreateOrderItemInput[]): Promise<Option<Order>>;
+  createOrder(customerName: string, customerMobile: string, items: CreateOrderItemInput[], taxEnabled: boolean): Promise<Option<Order>>;
   getOrder(id: bigint): Promise<Option<Order>>;
   updateOrderStatus(id: bigint, status: OrderStatus): Promise<Option<Order>>;
+  deleteOrder(id: bigint): Promise<boolean>;
   listRecentOrders(limit: bigint): Promise<Order[]>;
 }

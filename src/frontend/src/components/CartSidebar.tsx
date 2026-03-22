@@ -2,10 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   CheckCircle,
   Loader2,
+  MapPin,
   Minus,
   Phone,
   Plus,
@@ -20,6 +29,12 @@ import { toast } from "sonner";
 import type { CartItem } from "../App";
 import { ITEM_EMOJIS, formatPrice } from "../data/seedData";
 import { useCreateOrder } from "../hooks/useQueries";
+
+const OUTLETS = [
+  "GrabShala - Main Branch",
+  "GrabShala - Branch 2",
+  "GrabShala - Branch 3",
+];
 
 interface CartSidebarProps {
   cart: CartItem[];
@@ -38,6 +53,8 @@ export default function CartSidebar({
 }: CartSidebarProps) {
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
+  const [selectedOutlet, setSelectedOutlet] = useState("");
+  const [taxEnabled, setTaxEnabled] = useState(true);
   const [orderNumber, setOrderNumber] = useState<number>(
     () => Math.floor(Math.random() * 900) + 100,
   );
@@ -49,7 +66,7 @@ export default function CartSidebar({
     (sum, i) => sum + Number(i.priceCents) * i.quantity,
     0,
   );
-  const taxCents = Math.round(subtotalCents * 0.05);
+  const taxCents = taxEnabled ? Math.round(subtotalCents * 0.05) : 0;
   const totalCents = subtotalCents + taxCents;
 
   const isCartEmpty = cart.length === 0;
@@ -65,6 +82,10 @@ export default function CartSidebar({
   const handlePlaceOrder = async () => {
     if (isCartEmpty) {
       toast.error("Cart is empty");
+      return;
+    }
+    if (!selectedOutlet) {
+      toast.error("Please select an outlet");
       return;
     }
     if (!customerName.trim()) {
@@ -84,11 +105,13 @@ export default function CartSidebar({
           menuItemId: i.menuItemId,
           quantity: BigInt(i.quantity),
         })),
+        taxEnabled,
       });
       toast.success(`Order #${orderNumber} placed successfully!`);
       onClear();
       setCustomerName("");
       setCustomerMobile("");
+      setSelectedOutlet("");
       setOrderNumber(Math.floor(Math.random() * 900) + 100);
       onOrderPlaced?.();
     } catch {
@@ -97,6 +120,7 @@ export default function CartSidebar({
       onClear();
       setCustomerName("");
       setCustomerMobile("");
+      setSelectedOutlet("");
       setOrderNumber(Math.floor(Math.random() * 900) + 100);
       onOrderPlaced?.();
     }
@@ -106,6 +130,7 @@ export default function CartSidebar({
     onClear();
     setCustomerName("");
     setCustomerMobile("");
+    setSelectedOutlet("");
     setOrderNumber(Math.floor(Math.random() * 900) + 100);
   };
 
@@ -129,6 +154,12 @@ export default function CartSidebar({
           <span>Order #:</span>
           <span>{orderNumber}</span>
         </div>
+        {selectedOutlet && (
+          <div className="receipt-row">
+            <span>Outlet:</span>
+            <span>{selectedOutlet}</span>
+          </div>
+        )}
         <div className="receipt-row">
           <span>Date:</span>
           <span>{dateStr}</span>
@@ -170,10 +201,12 @@ export default function CartSidebar({
           <span>Subtotal:</span>
           <span>{formatPrice(BigInt(subtotalCents))}</span>
         </div>
-        <div className="receipt-row">
-          <span>Tax (5%):</span>
-          <span>{formatPrice(BigInt(taxCents))}</span>
-        </div>
+        {taxEnabled && (
+          <div className="receipt-row">
+            <span>Tax (5%):</span>
+            <span>{formatPrice(BigInt(taxCents))}</span>
+          </div>
+        )}
         <div className="receipt-divider" />
         <div className="receipt-row receipt-total">
           <span>TOTAL:</span>
@@ -290,6 +323,32 @@ export default function CartSidebar({
               Customer Details
             </p>
             <div className="space-y-2">
+              {/* Outlet selector */}
+              <div>
+                <Label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Outlet
+                </Label>
+                <Select
+                  value={selectedOutlet}
+                  onValueChange={setSelectedOutlet}
+                >
+                  <SelectTrigger
+                    data-ocid="order.outlet.select"
+                    className="h-9 text-sm bg-input border-border"
+                  >
+                    <SelectValue placeholder="Select outlet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OUTLETS.map((outlet) => (
+                      <SelectItem key={outlet} value={outlet}>
+                        {outlet}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
@@ -315,6 +374,25 @@ export default function CartSidebar({
             </div>
           </div>
 
+          {/* Tax toggle */}
+          <div className="px-3 pb-2">
+            <Separator className="mb-3" />
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="tax-toggle"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer"
+              >
+                Apply Tax (5%)
+              </Label>
+              <Switch
+                id="tax-toggle"
+                data-ocid="order.tax.toggle"
+                checked={taxEnabled}
+                onCheckedChange={setTaxEnabled}
+              />
+            </div>
+          </div>
+
           {/* Totals */}
           <div className="px-3 pb-3">
             <Separator className="mb-3" />
@@ -325,12 +403,14 @@ export default function CartSidebar({
                   {formatPrice(BigInt(subtotalCents))}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Tax (5%)</span>
-                <span className="text-foreground">
-                  {formatPrice(BigInt(taxCents))}
-                </span>
-              </div>
+              {taxEnabled && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Tax (5%)</span>
+                  <span className="text-foreground">
+                    {formatPrice(BigInt(taxCents))}
+                  </span>
+                </div>
+              )}
               <Separator className="my-2" />
               <div className="flex justify-between">
                 <span className="text-sm font-semibold text-foreground">

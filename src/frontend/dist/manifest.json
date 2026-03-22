@@ -1,0 +1,17 @@
+{
+  "name": "Food POS",
+  "short_name": "FoodPOS",
+  "description": "Fast and easy food point-of-sale application",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0B0F12",
+  "background_color": "#0B0F12",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

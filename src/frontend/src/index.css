@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    /* Dark POS Theme */
+    --background: 0.13 0.013 222;
+    --foreground: 0.93 0.012 220;
+    --card: 0.19 0.018 222;
+    --card-foreground: 0.93 0.012 220;
+    --popover: 0.22 0.02 222;
+    --popover-foreground: 0.93 0.012 220;
+    --primary: 0.66 0.15 162;
+    --primary-foreground: 0.13 0.013 222;
+    --secondary: 0.25 0.022 222;
+    --secondary-foreground: 0.93 0.012 220;
+    --muted: 0.22 0.02 222;
+    --muted-foreground: 0.68 0.018 220;
+    --accent: 0.28 0.024 222;
+    --accent-foreground: 0.93 0.012 220;
+    --destructive: 0.45 0.1 22;
+    --destructive-foreground: 0.93 0.012 220;
+    --border: 0.29 0.024 222;
+    --input: 0.25 0.022 222;
+    --ring: 0.66 0.15 162;
+    --pos-amber: 0.72 0.12 70;
+    --pos-panel: 0.18 0.018 222;
+    --chart-1: 0.66 0.15 162;
+    --chart-2: 0.72 0.12 70;
+    --chart-3: 0.45 0.1 22;
+    --chart-4: 0.55 0.13 240;
+    --chart-5: 0.6 0.14 130;
+    --sidebar: 0.18 0.018 222;
+    --sidebar-foreground: 0.93 0.012 220;
+    --sidebar-primary: 0.66 0.15 162;
+    --sidebar-primary-foreground: 0.13 0.013 222;
+    --sidebar-accent: 0.22 0.02 222;
+    --sidebar-accent-foreground: 0.93 0.012 220;
+    --sidebar-border: 0.29 0.024 222;
+    --sidebar-ring: 0.66 0.15 162;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: oklch(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--border));
+  border-radius: 2px;
+}
+
+/* Print receipt styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-receipt,
+  #print-receipt * {
+    visibility: visible;
+  }
+  #print-receipt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80mm;
+    background: white;
+    color: black;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 8px;
+    line-height: 1.4;
+  }
+  .receipt-divider {
+    border-top: 1px dashed #000;
+    margin: 4px 0;
+  }
+  .receipt-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .receipt-center {
+    text-align: center;
+  }
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+  }
+  .receipt-total {
+    font-weight: bold;
+    font-size: 14px;
+  }
+}

@@ -1,0 +1,74 @@
+type UserRole = 
+ variant {
+   admin;
+   guest;
+   user;
+ };
+type OrderStatus = 
+ variant {
+   completed;
+   pending;
+   voided;
+ };
+type OrderItem = 
+ record {
+   menuItemId: nat;
+   name: text;
+   priceCents: nat;
+   quantity: nat;
+ };
+type Order = 
+ record {
+   createdAt: int;
+   customerMobile: text;
+   customerName: text;
+   id: nat;
+   items: vec OrderItem;
+   orderNumber: nat;
+   status: OrderStatus;
+   subtotalCents: nat;
+   taxCents: nat;
+   totalCents: nat;
+ };
+type MenuItem = 
+ record {
+   available: bool;
+   categoryId: nat;
+   description: text;
+   id: nat;
+   name: text;
+   priceCents: nat;
+ };
+type CreateOrderItemInput = 
+ record {
+   menuItemId: nat;
+   quantity: nat;
+ };
+type Category = 
+ record {
+   id: nat;
+   name: text;
+   sortOrder: nat;
+ };
+service : {
+  _initializeAccessControlWithSecret: (userSecret: text) -> ();
+  assignCallerUserRole: (user: principal, role: UserRole) -> ();
+  createCategory: (name: text, sortOrder: nat) -> (Category);
+  createMenuItem: (categoryId: nat, name: text, description: text,
+   priceCents: nat) -> (MenuItem);
+  createOrder: (customerName: text, customerMobile: text, itemInputs:
+   vec CreateOrderItemInput) -> (opt Order);
+  deleteCategory: (id: nat) -> (bool);
+  deleteMenuItem: (id: nat) -> (bool);
+  getCallerUserRole: () -> (UserRole) query;
+  getOrder: (id: nat) -> (opt Order) query;
+  isCallerAdmin: () -> (bool) query;
+  listCategories: () -> (vec Category) query;
+  listMenuItems: () -> (vec MenuItem) query;
+  listMenuItemsByCategory: (categoryId: nat) -> (vec MenuItem) query;
+  listRecentOrders: (limit: nat) -> (vec Order) query;
+  updateCategory: (id: nat, name: text, sortOrder: nat) -> (opt Category);
+  updateMenuItem: (id: nat, categoryId: nat, name: text, description: 
+   text, priceCents: nat, available: bool) -> (opt MenuItem);
+  updateOrderStatus: (id: nat, status: OrderStatus) -> (opt Order);
+}

@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useReducer, useState } from "react";
 import type { MenuItem } from "./backend.d";
+import AdminLoginScreen from "./components/AdminLoginScreen";
 import AdminScreen from "./components/AdminScreen";
 import Header from "./components/Header";
 import POSScreen from "./components/POSScreen";
+import { useAdminAuth } from "./hooks/useAdminAuth";
 
 export type CartItem = {
   menuItemId: bigint;
@@ -64,6 +66,7 @@ export type AppView = "pos" | "admin";
 export default function App() {
   const [view, setView] = useState<AppView>("pos");
   const [cart, dispatch] = useReducer(cartReducer, []);
+  const { isLoggedIn, login, logout, changePassword } = useAdminAuth();
 
   const addToCart = useCallback(
     (item: MenuItem) => dispatch({ type: "ADD", item }),
@@ -80,10 +83,20 @@ export default function App() {
   );
   const clearCart = useCallback(() => dispatch({ type: "CLEAR" }), []);
 
+  function handleLogout() {
+    logout();
+    setView("pos");
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background flex flex-col">
-        <Header view={view} onViewChange={setView} />
+        <Header
+          view={view}
+          onViewChange={setView}
+          isAdminLoggedIn={isLoggedIn}
+          onLogout={handleLogout}
+        />
         <main className="flex-1 overflow-hidden">
           {view === "pos" ? (
             <POSScreen
@@ -93,8 +106,13 @@ export default function App() {
               onUpdateQty={updateQty}
               onClearCart={clearCart}
             />
+          ) : isLoggedIn ? (
+            <AdminScreen
+              onLogout={handleLogout}
+              onChangePassword={changePassword}
+            />
           ) : (
-            <AdminScreen />
+            <AdminLoginScreen onLogin={login} />
           )}
         </main>
         <footer className="py-3 text-center text-xs text-muted-foreground border-t border-border">

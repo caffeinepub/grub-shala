@@ -24,17 +24,11 @@ import {
   User,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { CartItem } from "../App";
 import { ITEM_EMOJIS, formatPrice } from "../data/seedData";
-import { useCreateOrder } from "../hooks/useQueries";
-
-const OUTLETS = [
-  "GrabShala - Main Branch",
-  "GrabShala - Branch 2",
-  "GrabShala - Branch 3",
-];
+import { useCreateOrder, useListOutlets } from "../hooks/useQueries";
 
 interface CartSidebarProps {
   cart: CartItem[];
@@ -61,6 +55,17 @@ export default function CartSidebar({
   const printRef = useRef<HTMLDivElement>(null);
 
   const createOrder = useCreateOrder();
+  const { data: outletData } = useListOutlets();
+
+  // Pre-select outlet from URL query param (?outlet=<id>)
+  useEffect(() => {
+    if (!outletData || outletData.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const outletId = params.get("outlet");
+    if (!outletId) return;
+    const match = outletData.find((o) => o.id.toString() === outletId);
+    if (match) setSelectedOutlet(match.name);
+  }, [outletData]);
 
   const subtotalCents = cart.reduce(
     (sum, i) => sum + Number(i.priceCents) * i.quantity,
@@ -340,9 +345,9 @@ export default function CartSidebar({
                     <SelectValue placeholder="Select outlet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {OUTLETS.map((outlet) => (
-                      <SelectItem key={outlet} value={outlet}>
-                        {outlet}
+                    {(outletData ?? []).map((o) => (
+                      <SelectItem key={o.id.toString()} value={o.name}>
+                        {o.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -53,12 +53,24 @@ export interface CreateOrderItemInput {
   quantity: bigint;
 }
 
+export interface Outlet {
+  id: bigint;
+  name: string;
+  address: string;
+}
+
 export interface backendInterface {
   // Authorization
   _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
   getCallerUserRole(): Promise<{ admin: null } | { user: null } | { anonymous: null }>;
   assignCallerUserRole(user: Principal, role: { admin: null } | { user: null } | { anonymous: null }): Promise<void>;
   isCallerAdmin(): Promise<boolean>;
+
+  // Outlets
+  createOutlet(name: string, address: string): Promise<Outlet>;
+  updateOutlet(id: bigint, name: string, address: string): Promise<Option<Outlet>>;
+  deleteOutlet(id: bigint): Promise<boolean>;
+  listOutlets(): Promise<Outlet[]>;
 
   // Categories
   createCategory(name: string, sortOrder: bigint): Promise<Category>;

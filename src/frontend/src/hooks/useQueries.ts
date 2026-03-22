@@ -5,6 +5,7 @@ import type {
   MenuItem,
   Order,
   OrderStatus,
+  Outlet,
   backendInterface,
 } from "../backend.d";
 import { useActor } from "./useActor";
@@ -62,6 +63,62 @@ export function useIsAdmin() {
       return typedActor(actor).isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
+  });
+}
+
+export function useListOutlets() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Outlet[]>({
+    queryKey: ["outlets"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return typedActor(actor).listOutlets();
+    },
+    enabled: !!actor && !isFetching,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateOutlet() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      name,
+      address,
+    }: { name: string; address: string }) => {
+      if (!actor) throw new Error("Not connected");
+      return typedActor(actor).createOutlet(name, address);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["outlets"] }),
+  });
+}
+
+export function useUpdateOutlet() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      name,
+      address,
+    }: { id: bigint; name: string; address: string }) => {
+      if (!actor) throw new Error("Not connected");
+      return typedActor(actor).updateOutlet(id, name, address);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["outlets"] }),
+  });
+}
+
+export function useDeleteOutlet() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not connected");
+      return typedActor(actor).deleteOutlet(id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["outlets"] }),
   });
 }
 

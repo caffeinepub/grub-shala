@@ -31,7 +31,10 @@ import {
   CheckCircle,
   Clock,
   Download,
+  KeyRound,
+  Link2,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
@@ -41,7 +44,13 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Category, MenuItem, Order, OrderStatus } from "../backend.d";
+import type {
+  Category,
+  MenuItem,
+  Order,
+  OrderStatus,
+  Outlet,
+} from "../backend.d";
 import {
   ITEM_EMOJIS,
   SEED_CATEGORIES,
@@ -51,15 +60,19 @@ import {
 import {
   useCreateCategory,
   useCreateMenuItem,
+  useCreateOutlet,
   useDeleteCategory,
   useDeleteMenuItem,
   useDeleteOrder,
+  useDeleteOutlet,
   useListCategories,
   useListMenuItems,
+  useListOutlets,
   useListRecentOrders,
   useUpdateCategory,
   useUpdateMenuItem,
   useUpdateOrderStatus,
+  useUpdateOutlet,
 } from "../hooks/useQueries";
 
 function getStatusLabel(status: OrderStatus): { label: string; color: string } {
@@ -92,6 +105,289 @@ function downloadCSV(filename: string, rows: string[][]): void {
 function formatOrderDate(createdAt: bigint): string {
   const d = new Date(Number(createdAt) / 1_000_000);
   return `${d.toLocaleDateString("en-IN")} ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+// ---- Outlets Tab ----
+function OutletsTab() {
+  const { data: outlets = [] } = useListOutlets();
+  const createOutlet = useCreateOutlet();
+  const updateOutlet = useUpdateOutlet();
+  const deleteOutlet = useDeleteOutlet();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Outlet | null>(null);
+  const [form, setForm] = useState({ name: "", address: "" });
+  const [deleteId, setDeleteId] = useState<bigint | null>(null);
+
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ name: "", address: "" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (outlet: Outlet) => {
+    setEditing(outlet);
+    setForm({ name: outlet.name, address: outlet.address });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("Outlet name is required");
+      return;
+    }
+    try {
+      if (editing) {
+        await updateOutlet.mutateAsync({
+          id: editing.id,
+          name: form.name.trim(),
+          address: form.address.trim(),
+        });
+        toast.success("Outlet updated");
+      } else {
+        await createOutlet.mutateAsync({
+          name: form.name.trim(),
+          address: form.address.trim(),
+        });
+        toast.success("Outlet created");
+      }
+      setDialogOpen(false);
+    } catch {
+      toast.error("Failed — backend may be unavailable");
+      setDialogOpen(false);
+    }
+  };
+
+  const handleDelete = async (id: bigint) => {
+    try {
+      await deleteOutlet.mutateAsync(id);
+      toast.success("Outlet deleted");
+    } catch {
+      toast.error("Failed to delete outlet");
+    }
+    setDeleteId(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {outlets.length} outlet{outlets.length !== 1 ? "s" : ""}
+        </p>
+        <Button
+          data-ocid="outlet.add_button"
+          size="sm"
+          onClick={openAdd}
+          className="bg-primary text-primary-foreground"
+        >
+          <Plus className="w-4 h-4 mr-1" /> Add Outlet
+        </Button>
+      </div>
+
+      {outlets.length === 0 ? (
+        <div
+          data-ocid="outlet.empty_state"
+          className="flex flex-col items-center justify-center h-48 text-muted-foreground border border-dashed border-border rounded-xl"
+        >
+          <MapPin className="w-8 h-8 mb-2" />
+          <p className="text-sm">No outlets yet</p>
+          <p className="text-xs">
+            Add your first outlet using the button above
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground text-xs">
+                  Name
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs">
+                  Address
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs text-right">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {outlets.map((outlet, idx) => (
+                <TableRow
+                  key={outlet.id.toString()}
+                  data-ocid={`outlet.item.${idx + 1}`}
+                  className="border-border"
+                >
+                  <TableCell className="font-medium text-sm">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                      {outlet.name}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {outlet.address || (
+                      <span className="italic text-xs">No address set</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        data-ocid={`outlet.copy_link_button.${idx + 1}`}
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-muted-foreground hover:text-primary"
+                        title="Copy staff link"
+                        onClick={() => {
+                          const url = `${window.location.origin}${window.location.pathname}?outlet=${outlet.id}`;
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() =>
+                              toast.success(
+                                `Staff link for "${outlet.name}" copied!`,
+                              ),
+                            )
+                            .catch(() => toast.error("Failed to copy link"));
+                        }}
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        data-ocid={`outlet.edit_button.${idx + 1}`}
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7"
+                        onClick={() => openEdit(outlet)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        data-ocid={`outlet.delete_button.${idx + 1}`}
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteId(outlet.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Add/Edit dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent
+          data-ocid="outlet.dialog"
+          className="bg-card border-border"
+        >
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Outlet" : "New Outlet"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="outlet-name"
+                className="text-xs text-muted-foreground"
+              >
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="outlet-name"
+                data-ocid="outlet.name.input"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="e.g. Grub Shala - Main Branch"
+                className="bg-input border-border"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="outlet-address"
+                className="text-xs text-muted-foreground"
+              >
+                Address{" "}
+                <span className="text-muted-foreground text-xs">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="outlet-address"
+                data-ocid="outlet.address.input"
+                value={form.address}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, address: e.target.value }))
+                }
+                placeholder="e.g. 12 MG Road, Bangalore"
+                className="bg-input border-border"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              data-ocid="outlet.cancel_button"
+              variant="ghost"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="outlet.save_button"
+              onClick={handleSave}
+              disabled={createOutlet.isPending || updateOutlet.isPending}
+              className="bg-primary text-primary-foreground"
+            >
+              {(createOutlet.isPending || updateOutlet.isPending) && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent
+          data-ocid="outlet.delete_dialog"
+          className="bg-card border-border"
+        >
+          <DialogHeader>
+            <DialogTitle>Delete Outlet?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. Orders associated with this outlet
+            will not be affected.
+          </p>
+          <DialogFooter>
+            <Button
+              data-ocid="outlet.delete_cancel_button"
+              variant="ghost"
+              onClick={() => setDeleteId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="outlet.delete_confirm_button"
+              variant="destructive"
+              onClick={() => deleteId && handleDelete(deleteId)}
+              disabled={deleteOutlet.isPending}
+            >
+              {deleteOutlet.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
 // ---- Categories Tab ----
@@ -1187,7 +1483,43 @@ function CustomersTab() {
   );
 }
 
-export default function AdminScreen() {
+interface AdminScreenProps {
+  onLogout?: () => void;
+  onChangePassword?: (oldPass: string, newPass: string) => boolean;
+}
+
+export default function AdminScreen({
+  onLogout: _onLogout,
+  onChangePassword,
+}: AdminScreenProps) {
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [oldPass, setOldPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [pwdError, setPwdError] = useState("");
+
+  function handleChangePwd(e: React.FormEvent) {
+    e.preventDefault();
+    setPwdError("");
+    if (newPass !== confirmPass) {
+      setPwdError("New passwords do not match");
+      return;
+    }
+    if (newPass.length < 4) {
+      setPwdError("Password must be at least 4 characters");
+      return;
+    }
+    if (onChangePassword?.(oldPass, newPass)) {
+      toast.success("Password changed successfully");
+      setShowChangePwd(false);
+      setOldPass("");
+      setNewPass("");
+      setConfirmPass("");
+    } else {
+      setPwdError("Current password is incorrect");
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -1195,17 +1527,93 @@ export default function AdminScreen() {
       transition={{ duration: 0.3 }}
       className="max-w-5xl mx-auto p-4 md:p-6"
     >
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage categories, menu items, orders, and customers
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage categories, menu items, orders, customers, and outlets
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          data-ocid="admin.security.open_modal_button"
+          onClick={() => setShowChangePwd(true)}
+          className="shrink-0 gap-1.5 text-muted-foreground border-border"
+        >
+          <KeyRound className="w-4 h-4" />
+          <span className="hidden sm:inline">Change Password</span>
+        </Button>
       </div>
+
+      <Dialog open={showChangePwd} onOpenChange={setShowChangePwd}>
+        <DialogContent
+          data-ocid="admin.security.dialog"
+          className="bg-pos-panel border-border"
+        >
+          <DialogHeader>
+            <DialogTitle>Change Admin Password</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleChangePwd} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="old-pass">Current Password</Label>
+              <Input
+                id="old-pass"
+                type="password"
+                value={oldPass}
+                onChange={(e) => setOldPass(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-pass">New Password</Label>
+              <Input
+                id="new-pass"
+                type="password"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-pass">Confirm New Password</Label>
+              <Input
+                id="confirm-pass"
+                type="password"
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                required
+              />
+            </div>
+            {pwdError && (
+              <p
+                data-ocid="admin.security.error_state"
+                className="text-sm text-destructive"
+              >
+                {pwdError}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                data-ocid="admin.security.cancel_button"
+                onClick={() => setShowChangePwd(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" data-ocid="admin.security.submit_button">
+                Update Password
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="categories">
         <TabsList
           data-ocid="admin.tab"
-          className="bg-secondary border border-border mb-6"
+          className="bg-secondary border border-border mb-6 flex-wrap h-auto gap-1"
         >
           <TabsTrigger
             value="categories"
@@ -1231,6 +1639,12 @@ export default function AdminScreen() {
           >
             Customers
           </TabsTrigger>
+          <TabsTrigger
+            value="outlets"
+            className="data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground"
+          >
+            Outlets
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
           <CategoriesTab />
@@ -1243,6 +1657,9 @@ export default function AdminScreen() {
         </TabsContent>
         <TabsContent value="customers">
           <CustomersTab />
+        </TabsContent>
+        <TabsContent value="outlets">
+          <OutletsTab />
         </TabsContent>
       </Tabs>
     </motion.div>

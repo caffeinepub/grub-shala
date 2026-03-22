@@ -1,13 +1,26 @@
 import { Button } from "@/components/ui/button";
-import { ChefHat, LayoutGrid, Settings, ShoppingCart } from "lucide-react";
+import {
+  ChefHat,
+  LayoutGrid,
+  LogOut,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
 import type { AppView } from "../App";
 
 interface HeaderProps {
   view: AppView;
   onViewChange: (v: AppView) => void;
+  isAdminLoggedIn?: boolean;
+  onLogout?: () => void;
 }
 
-export default function Header({ view, onViewChange }: HeaderProps) {
+export default function Header({
+  view,
+  onViewChange,
+  isAdminLoggedIn,
+  onLogout,
+}: HeaderProps) {
   return (
     <header className="h-14 bg-pos-panel border-b border-border flex items-center px-4 gap-4 shrink-0 shadow-panel z-10">
       {/* Brand */}
@@ -57,13 +70,30 @@ export default function Header({ view, onViewChange }: HeaderProps) {
 
       {/* Right cluster */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-          <ShoppingCart className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="hidden sm:flex flex-col items-end">
-          <span className="text-xs font-semibold text-foreground">Cashier</span>
-          <span className="text-xs text-muted-foreground">Staff</span>
-        </div>
+        {view === "admin" && isAdminLoggedIn && onLogout ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            data-ocid="admin.logout.button"
+            onClick={onLogout}
+            className="text-muted-foreground hover:text-destructive gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm">Logout</span>
+          </Button>
+        ) : (
+          <>
+            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-xs font-semibold text-foreground">
+                Cashier
+              </span>
+              <span className="text-xs text-muted-foreground">Staff</span>
+            </div>
+          </>
+        )}
       </div>
     </header>
   );

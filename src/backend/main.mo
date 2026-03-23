@@ -18,18 +18,20 @@ actor {
   var stableMenuItems : [MenuItem] = [];
   var stableOrders : [Order] = [];
   var stableOutlets : [Outlet] = [];
-  var nextCategoryId : Nat = 1;
-  var nextMenuItemId : Nat = 1;
-  var nextOrderId : Nat = 1;
-  var nextOrderNumber : Nat = 1;
-  var nextOutletId : Nat = 1;
+
+  // Counters declared stable so they survive upgrades and never reset
+  stable var nextCategoryId : Nat = 1;
+  stable var nextMenuItemId : Nat = 1;
+  stable var nextOrderId : Nat = 1;
+  stable var nextOrderNumber : Nat = 1;
+  stable var nextOutletId : Nat = 1;
 
   var categories = Map.empty<Nat, Category>();
   var menuItems = Map.empty<Nat, MenuItem>();
   var orders = Map.empty<Nat, Order>();
   var outlets = Map.empty<Nat, Outlet>();
 
-  // Safe upsert: remove (no-op if absent, returns ()), then add
+  // Safe upsert: remove (returns ()) then add
   func upsertCategory(id : Nat, v : Category) { categories.remove(id); categories.add(id, v) };
   func upsertMenuItem(id : Nat, v : MenuItem) { menuItems.remove(id); menuItems.add(id, v) };
   func upsertOrder(id : Nat, v : Order) { orders.remove(id); orders.add(id, v) };

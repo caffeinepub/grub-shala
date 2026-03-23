@@ -27,7 +27,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { CartItem } from "../App";
-import { ITEM_EMOJIS, formatPrice } from "../data/seedData";
+import { ITEM_EMOJIS, SEED_OUTLETS, formatPrice } from "../data/seedData";
 import { useCreateOrder, useListOutlets } from "../hooks/useQueries";
 
 interface CartSidebarProps {
@@ -57,15 +57,19 @@ export default function CartSidebar({
   const createOrder = useCreateOrder();
   const { data: outletData } = useListOutlets();
 
+  // Use backend outlets if available, otherwise fall back to seed outlets
+  const outlets =
+    outletData && outletData.length > 0 ? outletData : SEED_OUTLETS;
+
   // Pre-select outlet from URL query param (?outlet=<id>)
   useEffect(() => {
-    if (!outletData || outletData.length === 0) return;
+    if (!outlets || outlets.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const outletId = params.get("outlet");
     if (!outletId) return;
-    const match = outletData.find((o) => o.id.toString() === outletId);
+    const match = outlets.find((o) => o.id.toString() === outletId);
     if (match) setSelectedOutlet(match.name);
-  }, [outletData]);
+  }, [outlets]);
 
   const subtotalCents = cart.reduce(
     (sum, i) => sum + Number(i.priceCents) * i.quantity,
@@ -345,7 +349,7 @@ export default function CartSidebar({
                     <SelectValue placeholder="Select outlet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(outletData ?? []).map((o) => (
+                    {outlets.map((o) => (
                       <SelectItem key={o.id.toString()} value={o.name}>
                         {o.name}
                       </SelectItem>

@@ -1,4 +1,4 @@
-import type { Category, MenuItem } from "../backend.d";
+import type { Category, MenuItem, Outlet } from "../backend.d";
 
 let _nextId = 1n;
 const nextId = () => _nextId++;
@@ -63,7 +63,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     priceCents: 20900n,
     available: true,
   },
-
   // Drinks
   {
     id: nextId(),
@@ -105,7 +104,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     priceCents: 6000n,
     available: true,
   },
-
   // Sides
   {
     id: nextId(),
@@ -147,7 +145,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     priceCents: 12900n,
     available: true,
   },
-
   // Desserts
   {
     id: nextId(),
@@ -181,7 +178,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     priceCents: 17900n,
     available: true,
   },
-
   // Specials
   {
     id: nextId(),
@@ -215,6 +211,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     priceCents: 24900n,
     available: true,
   },
+];
+
+// Default outlets shown when backend is unavailable
+export const SEED_OUTLETS: Outlet[] = [
+  { id: 1n, name: "Energizer", address: "" },
+  { id: 2n, name: "Grub Shala - Sector 73", address: "" },
 ];
 
 export const ITEM_EMOJIS: Record<string, string> = {
